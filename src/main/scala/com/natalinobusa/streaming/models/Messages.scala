@@ -11,7 +11,7 @@ object Messages {
 
   // create resources
   case class CreateEvent(value:String)
-  case class CreateFilter(resolution:Int, field: String, transform:String, groupBy:String)
+  case class CreateFilter(resolution:Int, field: String, transform:String, group_by:String)
   case class CreateStream()
 
   //Actors: internal routing and selection
