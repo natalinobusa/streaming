@@ -2,7 +2,7 @@ package com.natalinobusa.streaming.models
 
 object Resources {
   case class Stream(id: Int)
-  case class Filter(id: Int, stream_id:Int, resolution: Int, transform: String, group_by: Option[String])
+  case class Filter(id: Int, stream_id:Int, resolution: Int, field: String, transform: String, group_by: String)
 }
 
 object Rest {
@@ -10,7 +10,7 @@ object Rest {
   case class StreamRest(id: Int, links: StreamHyper)
 
   case class FilterHyper(uri: String, input: String, output: String)
-  case class FilterRest(id: Int, stream_id: Int, resolution: Int, transform: String, group_by: Option[String], links:FilterHyper)
+  case class FilterRest(id: Int, stream_id: Int, resolution: Int, field:String, transform: String, group_by: String, links:FilterHyper)
 }
 
 import com.natalinobusa.streaming.models.Resources._
@@ -40,13 +40,14 @@ object Conversions {
     val links = FilterHyper(
       s"$rootUrl/streams/${resource.stream_id}/in/events/filters/${resource.id}",
       s"$rootUrl/streams/${resource.stream_id}/in/events",
-      s"$rootUrl/streams/${resource.stream_id}/in/events/filters/${resource.id}/out/events"
+      s"$rootUrl/streams/${resource.stream_id}/in/events/filtered_by/${resource.id}/out/events"
     )
 
     FilterRest(
       resource.id,
       resource.stream_id,
       resource.resolution,
+      resource.field,
       resource.transform,
       resource.group_by,
       links)

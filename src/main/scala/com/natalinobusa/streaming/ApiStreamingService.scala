@@ -1,15 +1,15 @@
 package com.natalinobusa.streaming
 
+
 import scala.concurrent.duration._
-import scala.util.{Failure, Success}
 
 // the service, actors and paths
 
-import akka.actor.{Props, Actor}
+import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
 
-import spray.routing.HttpService
+import spray.routing.{HttpService}
 import spray.can.Http
 import spray.util._
 import spray.http._
@@ -22,8 +22,7 @@ import models.Resources._
 import models.Messages._
 import models.Conversions._
 
-// marshalling resources to json
-
+// marshalling responses to json
 import spray.httpx.SprayJsonSupport.sprayJsonMarshaller
 import models.JsonConversions._
 
@@ -49,74 +48,127 @@ trait ApiStreamingService extends HttpService {
 
   implicit val timeout = Timeout(1.seconds)
 
-  def apiStreamsActor = actorRefFactory.actorSelection("/user/api/streams")
+  def streamsActor = actorRefFactory.actorSelection("/user/api/streams")
 
-  val serviceRoute = {
-    pathPrefix("api" / "streams") {
+  val ingestRoute = {
+    pathPrefix("streams" / IntNumber / "in" / "events") { stream_id =>
       pathEnd {
-        get {
-          ctx => apiStreamsActor.ask(ListStreams).mapTo[List[Stream]]
-            .onSuccess { case resources => ctx.complete(toStreamRest(resources))}
-        } ~
-          post {
-            ctx => apiStreamsActor.ask(CreateStream).mapTo[Stream]
-              .onSuccess { case resource => ctx.complete(toStreamRest(resource))}
-        } ~
-          (delete | head | patch) {
-          complete(HttpResponse(StatusCodes.MethodNotAllowed))
-        }
-      } ~
-      pathPrefix(IntNumber) { stream_id =>
-        pathEnd {
-          get {
-            ctx => apiStreamsActor.ask(GetStream(stream_id)).mapTo[Option[Stream]]
-              .onSuccess {
-              case Some(stream) => ctx.complete(toStreamRest(stream))
-              case None => ctx.complete(HttpResponse(StatusCodes.NotFound))
-            }
-          } ~
-          delete {
-            ctx => apiStreamsActor.ask(DeleteStream(stream_id)).mapTo[Boolean]
-              .onSuccess {
-                 case _ => ctx.complete(HttpResponse(StatusCodes.OK))
-            }
-          }
-        } ~
-        pathPrefix("in" / "events") {
-          pathEnd{
-            post {
-              ctx => apiStreamsActor.ask(CreateEvent(stream_id, 42)).mapTo[Boolean]
-                .onSuccess {
-                case true  => ctx.complete(HttpResponse(StatusCodes.OK))
-                case false => ctx.complete(HttpResponse(StatusCodes.BadRequest))
-              }
-            }
-          } ~
-          pathPrefix("filters") {
-            pathEnd {
-              //              get {
-              //                ctx => apiStreamsActor.ask(ListFilters(id)).mapTo[List[Filter]]
-              //                  .onSuccess { case resources => ctx.complete(toFilterRest(resources))}
-              //              }
-              //              ~
-              post {
-                ctx => apiStreamsActor.ask(CreateFilter(stream_id)).mapTo[Option[Filter]]
-                  .onSuccess {
-                    case Some(resource) => ctx.complete(toFilterRest(resource))
-                    case None => ctx.complete(HttpResponse(StatusCodes.BadRequest))
+
+        // validate the path, and expose the actor
+        onSuccess(streamsActor.ask(GetActorPath(stream_id)).mapTo[Option[ActorPath]]) {
+          streamActorPathOption => validate(streamActorPathOption.isDefined, "") {
+            provide(streamActorPathOption.orNull) {
+              streamActorPath => {
+
+                // the actual post
+                post {
+                  entity(as[String]) { s =>
+                    ctx => actorRefFactory.actorSelection(streamActorPath).ask(CreateEvent(s)).mapTo[Boolean]
+                      .onSuccess { case true => ctx.complete(HttpResponse(StatusCodes.OK))}
+                  }
                 }
               }
-              //              ~
-              //                (delete | head | patch) {
-              //                  complete(HttpResponse(StatusCodes.MethodNotAllowed))
-              //                }
-              //            } ~
-
             }
           }
         }
       }
     }
   }
-}
 
+  def filterRoute(streamActorPath: ActorPath) = {
+    pathPrefix(IntNumber) { filter_id =>
+      pathEnd {
+        get {
+          ctx => actorRefFactory.actorSelection(streamActorPath).ask(Get(filter_id)).mapTo[Option[Filter]]
+            .onSuccess {
+            case Some(filter) => ctx.complete(toFilterRest(filter))
+            case None => ctx.complete(HttpResponse(StatusCodes.NotFound))
+          }
+        } ~
+          delete {
+            ctx => actorRefFactory.actorSelection(streamActorPath).ask(Delete(filter_id)).mapTo[Boolean]
+              .onSuccess { case _ => ctx.complete(HttpResponse(StatusCodes.OK))}
+          }
+      }
+    }
+  }
+
+  val filtersRoute = {
+    pathPrefix("streams" / IntNumber / "in" / "events" / "filters") { stream_id =>
+      pathEnd {
+
+        // validate the path, and expose the actor
+        onSuccess(streamsActor.ask(GetActorPath(stream_id)).mapTo[Option[ActorPath]]) {
+          streamActorPathOption => validate(streamActorPathOption.isDefined, "") {
+            provide(streamActorPathOption.orNull) {
+              streamActorPath => {
+
+                get {
+                    ctx => actorRefFactory.actorSelection(streamActorPath).ask(List).mapTo[List[Filter]]
+                      .onSuccess { case filters => ctx.complete(toFilterRest(filters))}
+                  } ~
+                  post {
+                    entity( as[CreateFilter] ) { filterDefinition =>
+                      ctx => actorRefFactory.actorSelection(streamActorPath).ask(filterDefinition).mapTo[Option[Filter]]
+                        .onSuccess { case Some(filter) => ctx.complete(toFilterRest(filter))}
+                    }
+                  } ~
+                  delete {
+                    ctx => actorRefFactory.actorSelection(streamActorPath).ask(CreateStream).mapTo[Boolean]
+                      .onSuccess { case _ => ctx.complete(HttpResponse(StatusCodes.OK))}
+                  } ~
+                  filterRoute(streamActorPath)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  val streamRoute = {
+    pathPrefix(IntNumber) { stream_id =>
+      pathEnd {
+        get {
+          ctx => streamsActor.ask(Get(stream_id)).mapTo[Option[Stream]]
+            .onSuccess {
+              case Some(stream) => ctx.complete(toStreamRest(stream))
+              case None => ctx.complete(HttpResponse(StatusCodes.NotFound))
+          }
+        } ~
+          delete {
+            ctx => streamsActor.ask(Delete(stream_id)).mapTo[Boolean]
+              .onSuccess { case _ => ctx.complete(HttpResponse(StatusCodes.OK))}
+          }
+      }
+    }
+  }
+
+  val streamsRoute = {
+    pathPrefix("streams") {
+      pathEnd {
+        get {
+          ctx => streamsActor.ask(List).mapTo[List[Stream]]
+            .onSuccess { case streams => ctx.complete(toStreamRest(streams))}
+        } ~
+          post {
+            ctx => streamsActor.ask(CreateStream).mapTo[Option[Stream]]
+              .onSuccess { case Some(stream) => ctx.complete(toStreamRest(stream))}
+          } ~
+          (delete | head | patch) {
+            complete(HttpResponse(StatusCodes.MethodNotAllowed))
+          }
+      } ~
+      streamRoute
+    }
+  }
+
+  val serviceRoute = {
+    pathPrefix("api") {
+      streamsRoute ~
+      ingestRoute ~
+      filtersRoute
+    }
+  }
+
+}

@@ -1,14 +1,20 @@
 package com.natalinobusa.streaming.models
 
 object Messages {
-  case class DeleteStream(id:Int)
-  case class GetStream(id:Int)
-  case class ListStreams()
+  // generic messages for resources
+  case class  Get(id:Int)
+  case class  Head(id:Int)
+  case class  Delete(id:Int)
+  case object List
+  case object Create
+  case object Delete
+
+  // create resources
+  case class CreateEvent(value:String)
+  case class CreateFilter(resolution:Int, field: String, transform:String, groupBy:String)
   case class CreateStream()
 
-  case class CreateEvent(stream_id:Int, value:Int)
+  //Actors: internal routing and selection
+  case class GetActorPath(id:Int)
 
-  case class CreateFilter(stream_id:Int)
-  case class ListFilters(stream_id:Int)
-  case class DeleteFilter(stream_id:Int, filter_id:Int)
 }

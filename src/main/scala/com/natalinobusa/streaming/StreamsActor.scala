@@ -10,47 +10,31 @@ class StreamsActor extends Actor with ActorLogging {
 
   def actorRefFactory = context
 
-  val directory  = mutable.HashMap.empty[Int, ActorPath]
+  val directory  = mutable.HashMap.empty[Int, (ActorPath, Stream) ]
   var count= 0
 
   def receive = {
     case CreateStream =>
       count += 1
-      val actor = actorRefFactory.actorOf(Props[StreamActor], s"stream-$count")
-      directory += (count -> actor.path)
-      sender ! Stream(count)
+      val id  = count
+      val stream = Stream(id)
+      val actor = actorRefFactory.actorOf(StreamActor.props(id), s"stream-$id")
+      directory += (id -> (actor.path, stream))
+      sender ! Some(stream)
 
-    case ListStreams =>
-      val ids = directory.keySet.toList
-      sender ! ids.map(id => Stream(id))
+    case List =>
+      sender ! directory.values.map(e => e._2).toList
 
-    case  DeleteStream(stream_id) =>
-      directory.get(stream_id).map(path => actorRefFactory.actorSelection(path) ! PoisonPill)
-      directory -= stream_id
+    case Delete(id) =>
+      directory.get(id).map(e => actorRefFactory.actorSelection(e._1) ! PoisonPill)
+      directory -= id
       sender ! true
 
-    case  GetStream(stream_id) =>
-      sender ! { if (directory.isDefinedAt(stream_id)) Some(stream_id) else None }
+    case  Get(id) =>
+      sender ! { directory.get(id).map( e => Some(e._2) ) }
 
-    case  CreateEvent(stream_id, value) =>
-      directory.get(stream_id) match {
-        case Some(actorPath) =>
-          log.info(s"passing $value to actor $stream_id")
-          actorRefFactory.actorSelection(actorPath) ! value
-          sender ! true
-
-        case None => sender ! false
-      }
-
-    case  CreateFilter(stream_id) =>
-      directory.get(stream_id) match {
-        case Some(actorPath) =>
-          log.info(s"forwarding to $stream_id")
-          val streamActor = actorRefFactory.actorSelection(actorPath)
-          streamActor.tell(CreateFilter(stream_id), sender)
-
-        case None => sender ! None
-      }
+    case  GetActorPath(id) =>
+      sender ! directory.get(id).map(e => e._1)
 
   }
 }
