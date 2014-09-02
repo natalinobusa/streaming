@@ -18,7 +18,7 @@ import com.natalinobusa.streaming.models.Rest._
 
 object Conversions {
   def toStreamRest(resource: Stream) = {
-    val rootUrl = "http://localhost:8800/api"
+    val rootUrl = "http://localhost:8888/api"
     val id  = resource.id
 
     val links = StreamHyper(
@@ -34,7 +34,7 @@ object Conversions {
 
 
   def toFilterRest(resource: Filter) = {
-    val rootUrl = "http://localhost:8800/api"
+    val rootUrl = "http://localhost:8888/api"
     val id  = resource.id
 
     val links = FilterHyper(

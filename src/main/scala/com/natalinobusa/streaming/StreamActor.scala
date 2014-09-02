@@ -45,10 +45,14 @@ class StreamActor(stream_id: Int) extends Actor with ActorLogging {
       sender ! directory.values.map(e => e._2).toList
 
     case  Get(id) =>
-      sender ! { directory.get(id).map( e => Some(e._2) ) }
+      val resource = directory.get(id).map( e => e._2 )
+      log.info(s"streams get filter id $id, resource ${resource.toString} ")
+      sender ! resource
 
     case  GetActorPath(id) =>
-      sender ! directory.get(id).map(e => e._1)
+      val path = directory.get(id).map( e => e._1 )
+      log.info(s"stream get filter id $id, path ${path.toString} ")
+      sender ! path
 
     case CreateEvent(value) =>
       log.info(s"got message $value on stream $stream_id ...")
@@ -61,7 +65,7 @@ class StreamActor(stream_id: Int) extends Actor with ActorLogging {
           val filterActorPath  = e._2._1
 
           jsonAst.asJsObject.getFields(filterParams.field, filterParams.group_by) match {
-            case Seq(JsNumber(value), JsString(by)) =>  actorRefFactory.actorSelection(filterActorPath) ! (value.toLong, by.toString)
+            case Seq(JsNumber(value), JsString(by)) =>  actorRefFactory.actorSelection(filterActorPath) ! (value.toDouble, by.toString)
             case _ =>
           }
 

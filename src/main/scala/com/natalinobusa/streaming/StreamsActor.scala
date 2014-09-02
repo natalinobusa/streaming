@@ -31,10 +31,14 @@ class StreamsActor extends Actor with ActorLogging {
       sender ! true
 
     case  Get(id) =>
-      sender ! { directory.get(id).map( e => Some(e._2) ) }
+      val resource = directory.get(id).map( e => e._2 )
+      log.info(s"streams get stream id $id, resource ${resource.toString} ")
+      sender ! resource
 
     case  GetActorPath(id) =>
-      sender ! directory.get(id).map(e => e._1)
+      val path = directory.get(id).map( e => e._1 )
+      log.info(s"streams get stream id $id, path ${path.toString} ")
+      sender ! path
 
   }
 }

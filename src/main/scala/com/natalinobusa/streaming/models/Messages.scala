@@ -5,6 +5,7 @@ object Messages {
   case class  Get(id:Int)
   case class  Head(id:Int)
   case class  Delete(id:Int)
+  case object Get
   case object List
   case object Create
   case object Delete
