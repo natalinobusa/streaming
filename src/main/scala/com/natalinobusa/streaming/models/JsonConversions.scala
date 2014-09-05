@@ -1,7 +1,7 @@
 package com.natalinobusa.streaming.models
 
 import com.natalinobusa.streaming.models.Rest._
-import com.natalinobusa.streaming.models.Messages.CreateFilter
+import com.natalinobusa.streaming.models.Messages.{postResponse, CreateFilter}
 
 import spray.httpx.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
@@ -17,5 +17,8 @@ object JsonConversions extends DefaultJsonProtocol with SprayJsonSupport {
 
   //filter definition
   implicit val impCreateFilter = jsonFormat4(CreateFilter)
+
+  // client
+  implicit val impPostResponse = jsonFormat1(postResponse)
 
 }

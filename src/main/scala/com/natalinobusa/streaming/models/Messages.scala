@@ -12,10 +12,16 @@ object Messages {
 
   // create resources
   case class CreateEvent(value:String)
-  case class CreateFilter(resolution:Int, field: String, transform:String, group_by:String)
+  case class CreateFilter(resolution:Int, field: String, transform:String, group_by:Option[String])
   case class CreateStream()
 
   //Actors: internal routing and selection
   case class GetActorPath(id:Int)
+
+  //Streaming
+  case object End
+
+  //Client
+  case class postResponse(status:String)
 
 }

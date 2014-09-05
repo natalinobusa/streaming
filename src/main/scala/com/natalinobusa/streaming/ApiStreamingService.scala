@@ -9,18 +9,17 @@ import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
 
-import spray.routing.{HttpService}
+import spray.routing.{RequestContext, HttpService}
 import spray.can.Http
 import spray.util._
 import spray.http._
 import MediaTypes._
 
-
 // our models
 
 import models.Resources._
 import models.Messages._
-import models.Conversions._
+import com.natalinobusa.streaming.models.Conversions._
 
 // marshalling responses to json
 import spray.httpx.SprayJsonSupport.sprayJsonMarshaller
@@ -55,7 +54,7 @@ trait ApiStreamingService extends HttpService {
   def Ask(a: ActorSelection, msg: Any) = a.ask(msg)
 
   val ingestRoute = {
-    pathPrefix("streams" / IntNumber / "in" / "events") { stream_id =>
+    pathPrefix("streams" / IntNumber / "in" ) { stream_id =>
       pathEnd {
 
         // validate the path, and expose the actor
@@ -98,7 +97,7 @@ trait ApiStreamingService extends HttpService {
   }
 
   val filtersRoute = {
-    pathPrefix("streams" / IntNumber / "in" / "events" / "filters") { stream_id =>
+    pathPrefix("streams" / IntNumber / "in" / "filters") { stream_id =>
 
       // validate the path, and expose the actor
       onSuccess(Ask(streamsActor, GetActorPath(stream_id)).mapTo[Option[ActorPath]]) {
@@ -131,7 +130,7 @@ trait ApiStreamingService extends HttpService {
   }
 
   val outputRoute = {
-    pathPrefix("streams" / IntNumber / "in" / "events" / "filtered_by" / IntNumber / "out" / "events") { (stream_id, filter_id) =>
+    pathPrefix("streams" / IntNumber / "in"  / "filtered_by" / IntNumber / "out" ) { (stream_id, filter_id) =>
 
       // validate the path, and expose the actor
       onSuccess(Ask(streamsActor, GetActorPath(stream_id)).mapTo[Option[ActorPath]]) {
@@ -148,6 +147,11 @@ trait ApiStreamingService extends HttpService {
                         get {
                           ctx => Ask(filterActorPath, Get).mapTo[ Map[String,Double] ]
                             .onSuccess { case result => ctx.complete(result) }
+                        }
+                      } ~
+                      pathPrefix("streaming") {
+                        pathEnd {
+                          ctx => sendStreamingResponse(ctx, filterActorPath)
                         }
                       }
                     }
@@ -178,6 +182,18 @@ trait ApiStreamingService extends HttpService {
       }
     }
   }
+//
+//  val route = {
+//    pathPrefix("api/streams" / IntNumber) {
+//      id => {
+//        get {
+//          ctx => (coreActor ? Get(id) ).mapTo[Int]
+//            .onSuccess { case Some(resource) => complete(resource)}
+//        }
+//      } ~
+//        someOtherRoute
+//    }
+//  }
 
   val streamsRoute = {
     pathPrefix("streams") {
@@ -194,7 +210,23 @@ trait ApiStreamingService extends HttpService {
             complete(HttpResponse(StatusCodes.MethodNotAllowed))
           }
       } ~
-      streamRoute
+        streamRoute
+    }
+  }
+
+  val postRoute = {
+    pathPrefix("test") {
+      post {
+        entity(as[Map[String, Either[String, Double] ]]) { x =>
+          complete( postResponse("ok") )
+        }
+      }
+    }
+  }
+
+  val renderRoute = {
+    pathPrefix("dashboard") {
+      getFromResource("render.html")
     }
   }
 
@@ -203,8 +235,53 @@ trait ApiStreamingService extends HttpService {
       streamsRoute ~
       ingestRoute ~
       filtersRoute ~
-      outputRoute
+      outputRoute ~
+      renderRoute
     }
   }
 
+  def sendStreamingResponse(ctx: RequestContext, filterActorPath:ActorPath): Unit =
+    actorRefFactory.actorOf {
+      Props {
+        new Actor with ActorLogging {
+
+          import spray.json._
+          import DefaultJsonProtocol._
+
+          val `text/event-stream` = MediaType.custom("text/event-stream")
+          MediaTypes.register(`text/event-stream`)
+
+          // we use the successful sending of a chunk as trigger for scheduling the next chunk
+          val responseStart = HttpResponse(entity = HttpEntity(`text/event-stream`, streamStart))
+          ctx.responder ! ChunkedResponseStart(responseStart).withAck()
+
+          def receive = {
+            case End =>
+              ctx.responder ! MessageChunk(streamEnd)
+              ctx.responder ! ChunkedMessageEnd
+              context.stop(self)
+
+            case ev: Http.ConnectionClosed =>
+              log.warning("Stopping response streaming due to {}", ev)
+
+            case _ =>
+              in(500.millis) {
+                Ask(filterActorPath, Get).mapTo[ Map[String,Double] ]
+                  .onSuccess {
+                    case result =>
+                      val nextChunk = MessageChunk("data: " + result.toJson.compactPrint  + "\n\n")
+                      ctx.responder ! nextChunk.withAck()
+                  }
+              }
+          }
+        }
+      }
+    }
+
+  // we prepend 2048 "empty" bytes to push the browser to immediately start displaying the incoming chunks
+  lazy val streamStart = " " * 2048 + "\n\n"
+  lazy val streamEnd = "\n\n"
+
+  def in[U](duration: FiniteDuration)(body: => U): Unit =
+    actorSystem.scheduler.scheduleOnce(duration)(body)
 }

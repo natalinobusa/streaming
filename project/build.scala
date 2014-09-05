@@ -60,7 +60,12 @@ object Dependencies {
     "io.spray"           % "spray-io"      % sprayVersion,
     "io.spray"           % "spray-httpx"   % sprayVersion,
     "io.spray"           % "spray-routing" % sprayVersion,
-    
+
+    // spray client
+    "io.spray"           % "spray-util"    % sprayVersion,
+    "io.spray"           % "spray-http"    % sprayVersion,
+    "io.spray"           % "spray-client"  % sprayVersion,
+
     //spray-json
     "io.spray"           %% "spray-json"   % "1.2.6",
 

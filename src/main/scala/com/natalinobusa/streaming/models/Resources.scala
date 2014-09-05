@@ -2,7 +2,7 @@ package com.natalinobusa.streaming.models
 
 object Resources {
   case class Stream(id: Int)
-  case class Filter(id: Int, stream_id:Int, resolution: Int, field: String, transform: String, group_by: String)
+  case class Filter(id: Int, stream_id:Int, resolution: Int, field: String, transform: String, group_by: Option[String])
 }
 
 object Rest {
@@ -10,7 +10,7 @@ object Rest {
   case class StreamRest(id: Int, links: StreamHyper)
 
   case class FilterHyper(uri: String, input: String, output: String)
-  case class FilterRest(id: Int, stream_id: Int, resolution: Int, field:String, transform: String, group_by: String, links:FilterHyper)
+  case class FilterRest(id: Int, stream_id: Int, resolution: Int, field:String, transform: String, group_by: Option[String], links:FilterHyper)
 }
 
 import com.natalinobusa.streaming.models.Resources._
@@ -23,8 +23,8 @@ object Conversions {
 
     val links = StreamHyper(
       s"$rootUrl/streams/$id",
-      s"$rootUrl/streams/$id/in/events",
-      s"$rootUrl/streams/$id/in/events/filters"
+      s"$rootUrl/streams/$id/in",
+      s"$rootUrl/streams/$id/in/filters"
     )
 
     StreamRest(id, links)
@@ -38,9 +38,9 @@ object Conversions {
     val id  = resource.id
 
     val links = FilterHyper(
-      s"$rootUrl/streams/${resource.stream_id}/in/events/filters/${resource.id}",
-      s"$rootUrl/streams/${resource.stream_id}/in/events",
-      s"$rootUrl/streams/${resource.stream_id}/in/events/filtered_by/${resource.id}/out/events"
+      s"$rootUrl/streams/${resource.stream_id}/in/filters/${resource.id}",
+      s"$rootUrl/streams/${resource.stream_id}/in",
+      s"$rootUrl/streams/${resource.stream_id}/in/filtered_by/${resource.id}/out"
     )
 
     FilterRest(

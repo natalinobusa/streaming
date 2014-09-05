@@ -25,10 +25,10 @@ class StreamActor(stream_id: Int) extends Actor with ActorLogging {
     case CreateFilter(resolution, field, transform, group_by) =>
       count += 1
       val id = count
-      val actor = actorRefFactory.actorOf(FilterActor.props(id, stream_id, resolution, transform), s"filter-$id")
+      val actor = actorRefFactory.actorOf(FilterActor.props(id, stream_id, resolution, transform, group_by), s"filter-$id")
       val filter = Filter(id, stream_id, resolution, field, transform, group_by)
       directory += (id -> (actor.path, filter))
-      log.info("created filterActor {} {}", actor.path.toString, id)
+      log.info("created filterActor {} {} {}", filter.group_by.toString, actor.path.toString, id)
       sender ! Some(filter)
 
     case Delete(id) =>
@@ -64,11 +64,19 @@ class StreamActor(stream_id: Int) extends Actor with ActorLogging {
           val filterParams     = e._2._2
           val filterActorPath  = e._2._1
 
-          jsonAst.asJsObject.getFields(filterParams.field, filterParams.group_by) match {
-            case Seq(JsNumber(value), JsString(by)) =>  actorRefFactory.actorSelection(filterActorPath) ! (value.toDouble, by.toString)
-            case _ =>
+          filterParams.group_by match {
+            case Some(group_by) =>
+              log.info(s"sent message value $value group_by $group_by to filter ${filterActorPath.toString} ...")
+              jsonAst.asJsObject.getFields(filterParams.field, group_by) match {
+                case Seq(JsNumber(value), JsString(by)) => actorRefFactory.actorSelection(filterActorPath) ! (value.toDouble, by.toString)
+                case _ =>
+              }
+            case None =>
+              log.info(s"sent message value $value to filter ${filterActorPath.toString} ...")
+              jsonAst.asJsObject.getFields(filterParams.field) match {
+                case Seq(JsNumber(value)) => actorRefFactory.actorSelection(filterActorPath) ! (value.toDouble, "_result")
+              }
           }
-
         }
       }
       sender ! true
