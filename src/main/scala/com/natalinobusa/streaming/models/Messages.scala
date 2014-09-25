@@ -1,5 +1,7 @@
 package com.natalinobusa.streaming.models
 
+import Resources.Action
+
 object Messages {
   // generic messages for resources
   case class  Get(id:Int)
@@ -12,7 +14,7 @@ object Messages {
 
   // create resources
   case class CreateEvent(value:String)
-  case class CreateFilter(resolution:Int, field: String, transform:String, group_by:Option[String])
+  case class CreateFilter(resolution:Int, field: String, transform:String, group_by:Option[String], action:Option[Action])
   case class CreateStream()
 
   //Actors: internal routing and selection

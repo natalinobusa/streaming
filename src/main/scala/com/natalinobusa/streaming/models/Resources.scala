@@ -1,8 +1,12 @@
 package com.natalinobusa.streaming.models
 
+import Resources.Action
+
 object Resources {
   case class Stream(id: Int)
-  case class Filter(id: Int, stream_id:Int, resolution: Int, field: String, transform: String, group_by: Option[String])
+
+  case class Action(url: String, params: Map[String, String])
+  case class Filter(id: Int, stream_id:Int, resolution: Int, field: String, transform: String, group_by: Option[String], action: Option[Action])
 }
 
 object Rest {
@@ -10,7 +14,7 @@ object Rest {
   case class StreamRest(id: Int, links: StreamHyper)
 
   case class FilterHyper(uri: String, input: String, output: String)
-  case class FilterRest(id: Int, stream_id: Int, resolution: Int, field:String, transform: String, group_by: Option[String], links:FilterHyper)
+  case class FilterRest(id: Int, stream_id: Int, resolution: Int, field:String, transform: String, group_by: Option[String], action: Option[Action], links:FilterHyper)
 }
 
 import com.natalinobusa.streaming.models.Resources._
@@ -50,6 +54,7 @@ object Conversions {
       resource.field,
       resource.transform,
       resource.group_by,
+      resource.action,
       links)
   }
 

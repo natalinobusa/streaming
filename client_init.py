@@ -27,7 +27,7 @@ def delete(path) :
 # jogging with Linda
 post('/api/streams',{})
 post('/api/streams/1/in/filters',{"resolution":1, "field":"heart", "transform":"max", "group_by":"name"})
-post('/api/streams/1/in/filters',{"resolution":1, "field":"heart", "transform":"count"})
+post('/api/streams/1/in/filters',{"resolution":1, "field":"heart", "transform":"count", "action": {"url":"https://dashku.com/api/transmission", "params":{"_id" : "54217aeb69e5b36a5b00360b", "apiKey" : "0902f285-8824-4745-8f8b-81f24985fa1b"}}})
 
 # access logs with nasa
 post('/api/streams',{})

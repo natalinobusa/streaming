@@ -22,11 +22,11 @@ class StreamActor(stream_id: Int) extends Actor with ActorLogging {
   var count= 0
 
   def receive = {
-    case CreateFilter(resolution, field, transform, group_by) =>
+    case CreateFilter(resolution, field, transform, group_by, action) =>
       count += 1
       val id = count
-      val actor = actorRefFactory.actorOf(FilterActor.props(id, stream_id, resolution, transform, group_by), s"filter-$id")
-      val filter = Filter(id, stream_id, resolution, field, transform, group_by)
+      val actor = actorRefFactory.actorOf(FilterActor.props(id, stream_id, resolution, transform, group_by, action), s"filter-$id")
+      val filter = Filter(id, stream_id, resolution, field, transform, group_by, action)
       directory += (id -> (actor.path, filter))
       log.info("created filterActor {} {} {}", filter.group_by.toString, actor.path.toString, id)
       sender ! Some(filter)

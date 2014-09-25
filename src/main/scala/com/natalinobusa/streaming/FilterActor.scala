@@ -3,6 +3,8 @@ package com.natalinobusa.streaming
 import akka.actor._
 import akka.util.Timeout
 import com.natalinobusa.streaming.models.Messages.{postResponse, Get}
+import com.natalinobusa.streaming.models.Resources.Action
+
 import spray.http.MediaTypes._
 import spray.util._
 
@@ -23,12 +25,15 @@ import scala.util.{Failure, Success}
 import HttpMethods._
 import HttpEntity._
 
+import spray.json._
+import DefaultJsonProtocol._
+
 object FilterActor {
-  def props(id: Int, stream_id: Int, resolution: Int, transform: String, group_by: Option[String]): Props =
-    Props(new FilterActor(id, stream_id, resolution, transform, group_by))
+  def props(id: Int, stream_id: Int, resolution: Int, transform: String, group_by: Option[String], action:Option[Action]): Props =
+    Props(new FilterActor(id, stream_id, resolution, transform, group_by, action))
 }
 
-class FilterActor(id: Int, stream_id: Int, resolution: Int, transform: String, group_by: Option[String]) extends Actor with ActorLogging {
+class FilterActor(id: Int, stream_id: Int, resolution: Int, transform: String, group_by: Option[String], action:Option[Action]) extends Actor with ActorLogging {
 
   def actorRefFactory = context
 
@@ -113,27 +118,55 @@ class FilterActor(id: Int, stream_id: Int, resolution: Int, transform: String, g
     case Get =>
       log.info(s"filter $id, stream $stream_id pushing the data out")
 
-      //      val pipeline: HttpRequest => Future[postResponse] = (
-      //          sendReceive
-      //          ~> unmarshal[postResponse]
-      //        )
-      //
-      //      val payload = Map(
-      //        "_result" -> "300",
-      //        "_id" -> "540645e169e5b36a5b001371",
-      //        "apiKey" -> "0902f285-8824-4745-8f8b-81f24985fa1b"
-      //      )
-      //
-      //      val response: Future[postResponse] = pipeline(Post("https://dashku.com/api/transmission", payload /* Map("a"->"b","c"->"2.4") */ ))
-      //
-      //      response onComplete {
-      //        case Success(x) =>
-      //          log.info("The success ")
-      //
-      //        case Failure(error) =>
-      //          log.error(error, "Couldn't post")
-      //      }
+      action match {
 
+        case Some(act) => {
+
+          val pipeline: HttpRequest => Future[postResponse] = (
+            sendReceive
+              ~> unmarshal[postResponse]
+            )
+
+          val params_json = act.params.map(x => (x._1, x._2.toJson))
+          val data_json   = store.map(x => (x._1, x._2.toJson)).toMap.toJson
+
+          val payload = params_json ++ Map("data" -> data_json)
+
+          val response: Future[postResponse] = pipeline(Post(act.url, JsObject(payload)))
+
+          response onComplete {
+            case Success(x) =>
+              log.info("The success ")
+
+            case Failure(error) =>
+              log.error(error, "Couldn't post")
+          }
+        }
+
+        case _ =>
+      }
+
+// method 1
+//
+//      val payload_barchart = Map(
+//        "_result" -> store.head._2.toString,
+//        "_id" -> "54201aa969e5b36a5b002f2e",
+//        "apiKey" -> "0902f285-8824-4745-8f8b-81f24985fa1b"
+//      )
+//
+//      val response2: Future[postResponse] = pipeline(Post("https://dashku.com/api/transmission", payload_barchart ))
+//
+//      response2 onComplete {
+//        case Success(x) =>
+//          log.info("The success ")
+//
+//        case Failure(error) =>
+//          log.error(error, "Couldn't post")
+//      }
+
+
+// method 2
+//
 //      val payload = """{
 //      "_result": 500,
 //      "_id": "540645e169e5b36a5b001371",

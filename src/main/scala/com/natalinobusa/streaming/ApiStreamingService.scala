@@ -182,18 +182,6 @@ trait ApiStreamingService extends HttpService {
       }
     }
   }
-//
-//  val route = {
-//    pathPrefix("api/streams" / IntNumber) {
-//      id => {
-//        get {
-//          ctx => (coreActor ? Get(id) ).mapTo[Int]
-//            .onSuccess { case Some(resource) => complete(resource)}
-//        }
-//      } ~
-//        someOtherRoute
-//    }
-//  }
 
   val streamsRoute = {
     pathPrefix("streams") {
@@ -214,7 +202,7 @@ trait ApiStreamingService extends HttpService {
     }
   }
 
-  val postRoute = {
+  val testRoute = {
     pathPrefix("test") {
       post {
         entity(as[Map[String, Either[String, Double] ]]) { x =>
@@ -236,7 +224,8 @@ trait ApiStreamingService extends HttpService {
       ingestRoute ~
       filtersRoute ~
       outputRoute ~
-      renderRoute
+      renderRoute ~
+      testRoute
     }
   }
 
