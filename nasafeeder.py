@@ -24,7 +24,7 @@ def delete(path) :
     print json.dumps(json.loads(r.text), indent=2)
 
 
-f = open ('nasa.jul95.log', 'r')
+f = open ('nasa.access.sample.log', 'r')
 
 count =0
 while(1):

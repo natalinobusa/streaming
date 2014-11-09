@@ -6,7 +6,6 @@ import com.natalinobusa.streaming.models.Messages.{postResponse, CreateFilter}
 
 import spray.httpx.SprayJsonSupport
 import spray.json.DefaultJsonProtocol
-import spray.httpx.SprayJsonSupport.sprayJsonMarshaller
 
 object JsonConversions extends DefaultJsonProtocol with SprayJsonSupport {
   //filter definition
